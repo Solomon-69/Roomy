@@ -49,3 +49,5 @@ swiftc Planner.swift SectionLogic.swift main.swift -o /tmp/st             # main
 ```
 
 Requires macOS 14+, Apple silicon. MIT licence.
+
+More free apps by Solomon: [Mac-Apps](https://solomon-69.github.io/Mac-Apps/)
