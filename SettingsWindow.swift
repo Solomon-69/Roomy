@@ -240,6 +240,8 @@ struct GeneralPane: View {
                 SwitchRow(title: "Roomy on", detail: "Watch the menu bar: hide first, then quit low-priority apps if still full.", isOn: engine.guardOn) { engine.guardOn = $0 }
                 Divided()
                 SwitchRow(title: "Open at login", isOn: engine.openAtLogin) { engine.openAtLogin = $0 }
+                Divided()
+                SwitchRow(title: "Show in Dock", detail: "Off: Roomy stays in the menu bar only.", isOn: prefs.showInDock) { prefs.showInDock = $0 }
             }
             SettingsGroup(title: "PERMISSIONS") {
                 SettingRow(title: "Accessibility", detail: "Needed to see, open and move menu bar icons.") {

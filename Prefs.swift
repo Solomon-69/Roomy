@@ -38,6 +38,8 @@ struct LookConfig: Codable, Equatable {
     private let d = UserDefaults.standard
 
     @Published var showIcon: Bool { didSet { d.set(showIcon, forKey: "showIcon") } }
+    /// Off (default): menu bar only. On: Roomy also has a Dock icon and shows in the app switcher.
+    @Published var showInDock: Bool { didSet { d.set(showInDock, forKey: "showInDock"); Prefs.applyDock(showInDock) } }
     /// Full bar: hide the lowest-priority icons first (Command-drag them left of the divider), quit apps only if still full.
     @Published var autoHide: Bool { didSet { d.set(autoHide, forKey: "autoHide") } }
     @Published var hidingOn: Bool { didSet { d.set(hidingOn, forKey: "hidingOn") } }
@@ -61,6 +63,7 @@ struct LookConfig: Codable, Equatable {
         let d = UserDefaults.standard
         func b(_ k: String, _ def: Bool) -> Bool { d.object(forKey: k) == nil ? def : d.bool(forKey: k) }
         showIcon = b("showIcon", false)
+        showInDock = b("showInDock", false)
         autoHide = b("autoHide", false)
         hidingOn = b("hidingOn", false)
         if d.object(forKey: "migrated131") == nil { autoHide = false; hidingOn = false; d.removeObject(forKey: "hiddenByGuard"); d.set(true, forKey: "migrated131") }
@@ -81,6 +84,15 @@ struct LookConfig: Codable, Equatable {
         spacingOffset = d.integer(forKey: "spacingOffset")
         look = d.data(forKey: "look").flatMap { try? JSONDecoder().decode(LookConfig.self, from: $0) } ?? LookConfig()
         hotkeys = d.data(forKey: "hotkeys").flatMap { try? JSONDecoder().decode([String: HotkeyCombo].self, from: $0) } ?? [:]
+    }
+
+    /// Dock icon on or off, right away. Turning it off keeps Settings open and in front.
+    static func applyDock(_ show: Bool) {
+        let policy: NSApplication.ActivationPolicy = show ? .regular : .accessory
+        guard NSApp.activationPolicy() != policy else { return }
+        let front = NSApp.windows.filter { $0.isVisible && $0.canBecomeKey }
+        NSApp.setActivationPolicy(policy)
+        if !front.isEmpty { NSApp.activate(ignoringOtherApps: true); front.forEach { $0.orderFrontRegardless() } }
     }
 
     /// The Ice Bar is used on screens with a notch (or everywhere, if the user chose that).

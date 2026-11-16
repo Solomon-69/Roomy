@@ -8,7 +8,7 @@ import SwiftUI
         let app = NSApplication.shared
         let d = AppDelegate()
         app.delegate = d
-        app.setActivationPolicy(.accessory)
+        app.setActivationPolicy(Prefs.shared.showInDock ? .regular : .accessory)
         withExtendedLifetime(d) { app.run() }
     }
 }

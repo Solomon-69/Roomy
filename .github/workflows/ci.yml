@@ -1,0 +1,18 @@
+name: CI
+# Builds Roomy on a GitHub Mac (Xcode toolchain) on every push, and keeps the app as a download for testing.
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: SIGN_ID=- ./build.sh "$RUNNER_TEMP/out"
+      - name: Zip
+        run: ditto -c -k --keepParent "$RUNNER_TEMP/out/Roomy.app" Roomy-ci.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Roomy-ci
+          path: Roomy-ci.zip
