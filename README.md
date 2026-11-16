@@ -2,6 +2,10 @@
 
 <p align="center"><img src="assets/icon-light-1024.png" width="128"></p>
 
+<p align="center">
+  <a href="https://github.com/Solomon-69/Roomy/releases/latest/download/Roomy.dmg"><img alt="Download for Mac" height="40" src="https://img.shields.io/badge/Download_for_Mac-1f1d1a?style=for-the-badge&logo=apple&logoColor=white"></a>
+</p>
+
 Free Mac app for MacBooks with a notch. When you have so many menu bar icons that some hide
 behind the notch (the little double arrow), Roomy politely quits the lowest-priority
 apps **you allow**, and brings them back when there is room again.
