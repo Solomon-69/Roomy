@@ -38,7 +38,9 @@ Roomy needs **Accessibility** permission for this. It only reads icon positions;
 
 ## Install
 
-Download `Roomy.dmg` from the latest release, drag to Applications, open, follow the five welcome screens.
+Download **[Roomy.dmg](https://github.com/Solomon-69/Roomy/releases/latest/download/Roomy.dmg)** (always the newest; [zip](https://github.com/Solomon-69/Roomy/releases/latest/download/Roomy-mac.zip)), drag to Applications, open, follow the five welcome screens.
+
+Or paste one line in Terminal: `curl -fsSL https://solomon-69.github.io/Mac-Apps/download/install.sh | bash -s roomy`
 
 ## Build
 

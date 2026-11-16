@@ -33,6 +33,7 @@ import SwiftUI
     static let testName = Notification.Name("com.solomon.MenuBarGuard.test")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        IconRefresh.onceForThisVersion()   // new icon shows after an update
         let d = UserDefaults.standard
         statusItem = NSStatusBar.system.statusItem(withLength: 30)      // the one icon, placed like before 1.1
         if let b = statusItem.button {
