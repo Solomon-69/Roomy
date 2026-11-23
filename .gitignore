@@ -3,3 +3,5 @@ build/
 *.iconset
 .base-ast/
 QA/shots/
+
+build.noindex/

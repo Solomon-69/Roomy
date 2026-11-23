@@ -49,7 +49,7 @@ Or paste one line in Terminal: `curl -fsSL https://solomon-69.github.io/Mac-Apps
 ## Build
 
 ```bash
-./build.sh            # builds build/Roomy.app (Command Line Tools only)
+./build.sh            # builds build.noindex/Roomy.app (Command Line Tools only)
 swiftc -swift-version 5 Planner.swift tests/logic_test.swift -o /tmp/t   # rename logic_test.swift to main.swift first
 swiftc Planner.swift SectionLogic.swift main.swift -o /tmp/st             # main.swift = copy of tests/section_test.swift
 ```

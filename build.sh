@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # build.sh: compile Roomy.app with the Command Line Tools only (swiftc, no Xcode project).
-# Usage: ./build.sh [dest-folder]   (default ./build)   --regen-icon re-draws the icon first.
+# Usage: ./build.sh [dest-folder]   (default ./build.noindex, hidden from app search)   --regen-icon re-draws the icon first.
 set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET="${TARGET:-arm64-apple-macos14.0}"
-DEST="${1:-$REPO/build}"; [ "$DEST" = "--regen-icon" ] && DEST="$REPO/build"
+DEST="${1:-$REPO/build.noindex}"; [ "$DEST" = "--regen-icon" ] && DEST="$REPO/build.noindex"
 [ "${1:-}" = "--regen-icon" ] || [ "${2:-}" = "--regen-icon" ] && swift "$REPO/make-icon.swift"
 APP="$DEST/Roomy.app"; C="$APP/Contents"
 rm -rf "$APP"; mkdir -p "$C/MacOS" "$C/Resources"
