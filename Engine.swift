@@ -63,6 +63,14 @@ struct HiddenRecord: Codable, Identifiable, Equatable {
     private var noRestoreUntil = Date.distantPast
     /// Apps left inside macOS's « arrow after Roomy made room. Restarted once so they come back into the bar.
     private var stuck: [String] = []
+    /// Apps Roomy must NEVER send a quit request to: Claude always, apps marked Never, Apple's, and Roomy itself.
+    /// (24 Nov 2026: the « arrow fix restarted Claude every 6 minutes and Claude asked "Quit anyway?".)
+    static let protectedIDs: Set<String> = ["com.anthropic.claudefordesktop"]
+    func quitAllowed(_ a: NSRunningApplication) -> Bool {
+        guard let id = a.bundleIdentifier else { return false }
+        if Self.protectedIDs.contains(id) || id.hasPrefix("com.apple.") || id == ownID { return false }
+        return !(rules.first { $0.bundleID == id }?.neverQuit ?? false)
+    }
     /// Apps closed while macOS's « arrow stayed up. At most 2 per sighting, so a stuck Apple icon never empties the bar.
     private var overflowQuits = 0
     private var arrowFixes: [Date] = []
@@ -332,7 +340,7 @@ struct HiddenRecord: Codable, Identifiable, Equatable {
             let width = (l.items.first { $0.bundleID == rule.bundleID }?.width ?? 30)
             add("Menu bar \(verdict == .overflow ? "full" : "nearly full") (\(Int(Planner.free(l))) pt free). Asking \(rule.name) to quit.", "quit")
             let path = rule.path ?? app.bundleURL?.path     // read before it quits
-            app.terminate()
+            if quitAllowed(app) { app.terminate() } else { skip.insert(rule.bundleID); continue }
             var waited = 0.0
             while !app.isTerminated, waited < 8 { try? await Task.sleep(nanoseconds: 250_000_000); waited += 0.25 }
             if app.isTerminated {
@@ -366,9 +374,11 @@ struct HiddenRecord: Codable, Identifiable, Equatable {
     private func fixArrow() async {
         guard let l = layout else { return }
         arrowFixes = arrowFixes.filter { Date().timeIntervalSince($0) < 300 }
-        guard arrowFixes.count < 2 else { noFixUntil = Date().addingTimeInterval(300); add("The « arrow is still there after 2 tries. Roomy will try again in 5 minutes.", "warn"); return }
+        guard arrowFixes.count < 3 else { noFixUntil = Date().addingTimeInterval(90); add("The « arrow is still there after 3 tries. Roomy will try again in 90 seconds.", "warn"); return }
         let shown = Set(l.items.map(\.bundleID))
-        let hiddenApps = rules.filter { !shown.contains($0.bundleID) && !$0.bundleID.hasPrefix("com.apple.") && $0.bundleID != ownID }
+        // Only apps Roomy may close can be "hidden behind the arrow". Apps marked Never (like Claude) and apps without a menu bar
+        // icon are never restarted: restarting them did nothing and could close the app Solomon is working in.
+        let hiddenApps = rules.filter { !shown.contains($0.bundleID) && !$0.bundleID.hasPrefix("com.apple.") && $0.bundleID != ownID && $0.autoQuit && !$0.neverQuit }
             .compactMap { r in NSRunningApplication.runningApplications(withBundleIdentifier: r.bundleID).first.map { (r, $0) } }
         guard !hiddenApps.isEmpty else { return }   // only Apple items behind the arrow: closing apps would not help
         arrowFixes.append(Date())
@@ -378,24 +388,33 @@ struct HiddenRecord: Codable, Identifiable, Equatable {
         for it in l.items where used[it.bundleID] == nil { used[it.bundleID] = usedAt(it.bundleID, it.pid) }
         var skip = Set<String>([ownID]).union(justLaunched.keys).union(hiddenIDs)
         skip.formUnion(rules.filter { !$0.autoQuit }.map(\.bundleID))
-        if let rule = Planner.nextToQuit(l, rules: rules, skip: skip, lastUsed: used),
-           let app = NSRunningApplication.runningApplications(withBundleIdentifier: rule.bundleID).first {
-            let width = l.items.first { $0.bundleID == rule.bundleID }?.width ?? 30
+        // Close one app for every app that did not fit (at most 4), the one used longest ago first.
+        var closed = 0, current = l
+        while closed < min(4, hiddenApps.count),
+              let rule = Planner.nextToQuit(current, rules: rules, skip: skip, lastUsed: used),
+              let app = NSRunningApplication.runningApplications(withBundleIdentifier: rule.bundleID).first {
+            skip.insert(rule.bundleID)
+            let width = current.items.first { $0.bundleID == rule.bundleID }?.width ?? 30
             let path = rule.path ?? app.bundleURL?.path
             add("\(hiddenApps.map(\.0.name).joined(separator: ", ")) did not fit (macOS put it behind the « arrow). Closing \(rule.name), used longest ago.", "quit")
-            app.terminate()
+            if quitAllowed(app) { app.terminate() } else { skip.insert(rule.bundleID); continue }
             var w = 0.0
             while !app.isTerminated, w < 8 { try? await Task.sleep(nanoseconds: 250_000_000); w += 0.25 }
             if app.isTerminated {
+                closed += 1
                 quit.removeAll { $0.bundleID == rule.bundleID }
                 quit.append(QuitRecord(bundleID: rule.bundleID, name: rule.name, path: path, width: width, date: Date()))
                 save()
+                current.items.removeAll { $0.bundleID == rule.bundleID }
             }
         }
+        if closed == 0 { add("The « arrow is up but no app can be closed (all are Never or new).", "warn") }
         try? await Task.sleep(nanoseconds: 1_500_000_000)
         for (r, a) in hiddenApps {
             guard let url = a.bundleURL else { continue }
             add("Restarting \(r.name) so macOS shows it in the bar.", "restore")
+            guard quitAllowed(a) else { continue }
+            guard quitAllowed(a) else { continue }
             a.terminate()
             var w = 0.0
             while !a.isTerminated, w < 6 { try? await Task.sleep(nanoseconds: 250_000_000); w += 0.25 }
@@ -413,6 +432,8 @@ struct HiddenRecord: Codable, Identifiable, Equatable {
         for id in ids {
             guard let a = NSRunningApplication.runningApplications(withBundleIdentifier: id).first, let url = a.bundleURL else { continue }
             add("\(a.localizedName ?? id) was stuck behind the « arrow. Restarting it so it shows in the bar.", "restore")
+            guard quitAllowed(a) else { continue }
+            guard quitAllowed(a) else { continue }
             a.terminate()
             var w = 0.0
             while !a.isTerminated, w < 6 { try? await Task.sleep(nanoseconds: 250_000_000); w += 0.25 }
