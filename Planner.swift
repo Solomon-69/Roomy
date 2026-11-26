@@ -42,6 +42,18 @@ struct QuitRecord: Codable, Identifiable, Equatable {
 }
 
 enum Planner {
+    /// Apps Roomy may NEVER quit, hide-and-quit or relaunch, whatever the settings say.
+    /// Claude (24 Nov 2026) and Memo (26 Nov 2026: "Memo should never be quit from the menu bar").
+    static let alwaysProtected: Set<String> = ["com.anthropic.claudefordesktop", "com.solomon.Tenax"]
+
+    /// Rules with every always-protected app locked: neverQuit on, autoQuit off.
+    static func locked(_ rules: [Rule]) -> [Rule] {
+        rules.map { r in
+            guard alwaysProtected.contains(r.bundleID) else { return r }
+            var c = r; c.neverQuit = true; c.autoQuit = false; return c
+        }
+    }
+
     /// Space one icon needs besides its own width (the gap macOS leaves between icons).
     static let gap: CGFloat = 8
     /// Extra room kept after bringing an app back, so it never flips straight back to "full".
@@ -67,7 +79,7 @@ enum Planner {
     /// The app to close: the one used longest ago. Apple's own icons and apps marked "never" are never picked.
     /// `lastUsed` holds when each app was last in front (or opened); an app with no date counts as oldest.
     static func nextToQuit(_ l: BarLayout, rules: [Rule], skip: Set<String>, lastUsed: [String: Date] = [:]) -> Rule? {
-        let never = Set(rules.filter(\.neverQuit).map(\.bundleID))
+        let never = Set(rules.filter(\.neverQuit).map(\.bundleID)).union(alwaysProtected)
         let pick = l.items
             .filter { !$0.bundleID.hasPrefix("com.apple.") && !never.contains($0.bundleID) && !skip.contains($0.bundleID) }
             .min { (lastUsed[$0.bundleID] ?? .distantPast, $0.x) < (lastUsed[$1.bundleID] ?? .distantPast, $1.x) }
@@ -97,7 +109,7 @@ enum Planner {
     /// First-run order: the apps Solomon uses, most useful first. Everything else is added below.
     static let seed: [Rule] = [
         Rule(bundleID: "com.anthropic.claudefordesktop", name: "Claude", neverQuit: true),
-        Rule(bundleID: "com.solomon.Tenax", name: "Memo"),
+        Rule(bundleID: "com.solomon.Tenax", name: "Memo", neverQuit: true),
         Rule(bundleID: "com.aboudjem.Sleepless", name: "Awayke"),
         Rule(bundleID: "com.solomon.Stats", name: "Stats"),
         Rule(bundleID: "com.solomon.DarkSwitch", name: "Nox"),

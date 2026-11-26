@@ -28,7 +28,7 @@ enum SpacingApply {
     @MainActor static func relaunchable(_ entries: [BarEntry], locked: Set<String>) -> [NSRunningApplication] {
         let own = Bundle.main.bundleIdentifier
         var seen = Set<String>(), out: [NSRunningApplication] = []
-        for e in entries where !e.bundleID.hasPrefix("com.apple.") && e.bundleID != own && !locked.contains(e.bundleID) && e.bundleID != "com.anthropic.claudefordesktop" {
+        for e in entries where !e.bundleID.hasPrefix("com.apple.") && e.bundleID != own && !locked.contains(e.bundleID) && !Planner.alwaysProtected.contains(e.bundleID) {
             guard seen.insert(e.bundleID).inserted, let app = NSRunningApplication(processIdentifier: e.pid), app.bundleURL != nil else { continue }
             out.append(app)
         }
@@ -39,7 +39,7 @@ enum SpacingApply {
     @MainActor static func relaunch(_ apps: [NSRunningApplication], log: @escaping (String) -> Void) {
         Task { @MainActor in
             for app in apps {
-                guard let url = app.bundleURL, app.bundleIdentifier != "com.anthropic.claudefordesktop" else { continue }
+                guard let url = app.bundleURL, !Planner.alwaysProtected.contains(app.bundleIdentifier ?? "") else { continue }
                 let name = app.localizedName ?? url.lastPathComponent
                 app.terminate()
                 var waited = 0.0

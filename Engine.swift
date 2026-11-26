@@ -65,7 +65,7 @@ struct HiddenRecord: Codable, Identifiable, Equatable {
     private var stuck: [String] = []
     /// Apps Roomy must NEVER send a quit request to: Claude always, apps marked Never, Apple's, and Roomy itself.
     /// (24 Nov 2026: the « arrow fix restarted Claude every 6 minutes and Claude asked "Quit anyway?".)
-    static let protectedIDs: Set<String> = ["com.anthropic.claudefordesktop"]
+    static let protectedIDs: Set<String> = Planner.alwaysProtected
     func quitAllowed(_ a: NSRunningApplication) -> Bool {
         guard let id = a.bundleIdentifier else { return false }
         if Self.protectedIDs.contains(id) || id.hasPrefix("com.apple.") || id == ownID { return false }
@@ -82,6 +82,8 @@ struct HiddenRecord: Codable, Identifiable, Equatable {
     init() {
         load()
         if rules.isEmpty { rules = Planner.seed }
+        let fixed = Planner.locked(rules)
+        if fixed != rules { rules = fixed; save() }   // write the lock back so Settings shows it too
     }
 
     func start() {
@@ -252,7 +254,7 @@ struct HiddenRecord: Codable, Identifiable, Equatable {
     private func nextToHide(skip: Set<String>) -> BarEntry? {
         guard let sec = sections, let l = layout else { return nil }
         let lowest = l.rightMin
-        let never = Set(rules.filter(\.neverQuit).map(\.bundleID))
+        let never = Set(rules.filter(\.neverQuit).map(\.bundleID)).union(Planner.alwaysProtected)
         return entries.filter {
             !$0.bundleID.hasPrefix("com.apple.") && $0.bundleID != ownID && $0.pid != selfPID && !never.contains($0.bundleID)
                 && !skip.contains($0.id) && $0.x + $0.width / 2 >= lowest && SectionLogic.section($0, sec.dividers) == .visible
@@ -378,7 +380,7 @@ struct HiddenRecord: Codable, Identifiable, Equatable {
         let shown = Set(l.items.map(\.bundleID))
         // Only apps Roomy may close can be "hidden behind the arrow". Apps marked Never (like Claude) and apps without a menu bar
         // icon are never restarted: restarting them did nothing and could close the app Solomon is working in.
-        let hiddenApps = rules.filter { !shown.contains($0.bundleID) && !$0.bundleID.hasPrefix("com.apple.") && $0.bundleID != ownID && $0.autoQuit && !$0.neverQuit }
+        let hiddenApps = rules.filter { !shown.contains($0.bundleID) && !$0.bundleID.hasPrefix("com.apple.") && $0.bundleID != ownID && $0.autoQuit && !$0.neverQuit && !Planner.alwaysProtected.contains($0.bundleID) }
             .compactMap { r in NSRunningApplication.runningApplications(withBundleIdentifier: r.bundleID).first.map { (r, $0) } }
         guard !hiddenApps.isEmpty else { return }   // only Apple items behind the arrow: closing apps would not help
         arrowFixes.append(Date())
@@ -471,8 +473,11 @@ struct HiddenRecord: Codable, Identifiable, Equatable {
     // MARK: Editing
 
     func move(_ from: IndexSet, _ to: Int) { rules = Planner.move(rules, from: from, to: to); save() }
-    func setNever(_ id: String, _ v: Bool) { edit(id) { $0.neverQuit = v; if v { $0.autoQuit = false } } }
-    func setAuto(_ id: String, _ v: Bool) { edit(id) { $0.autoQuit = v && !$0.neverQuit } }
+    func setNever(_ id: String, _ v: Bool) {
+        if Planner.alwaysProtected.contains(id) && !v { return }   // Claude and Memo stay locked
+        edit(id) { $0.neverQuit = v; if v { $0.autoQuit = false } }
+    }
+    func setAuto(_ id: String, _ v: Bool) { edit(id) { $0.autoQuit = v && !$0.neverQuit && !Planner.alwaysProtected.contains(id) } }
     private func edit(_ id: String, _ f: (inout Rule) -> Void) {
         guard let i = rules.firstIndex(where: { $0.bundleID == id }) else { return }
         f(&rules[i]); save()

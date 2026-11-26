@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.3.6
+- Memo is now always locked, like Claude: Roomy never quits, hides-and-quits or relaunches it, and its lock cannot be switched off, even if old settings said otherwise.
+
 ## 1.3.5
 - Fixed: when macOS pushed icons behind its « arrow, Roomy restarted apps, including Claude, every 5 to 6 minutes, and Claude asked "Quit anyway?". Claude, apps marked Never, Apple's apps and Roomy itself can now never get a quit request, from any part of Roomy.
 - Fixed: with the « arrow up, Roomy closed only one app and then waited 5 minutes. It now closes one app for every app that did not fit (the one used longest ago first, up to 4) and checks again after 90 seconds.
